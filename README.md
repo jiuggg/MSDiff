@@ -132,39 +132,39 @@ This script performs the same steps for the HGA dataset, saving outputs to `data
 
 MS2-Diff uses 4 guidance branches, each providing a different structural or semantic view of the interaction graph.
 
-### Branch 1 — User-User Structural (2-hop Path)
+### Branch 1 — Mashup-Mashup Structural 
 
 Captures co-usage patterns between Mashups/Apps via shared APIs.
 
 - Computes `S_uu = R · R^T` where `R` is the binary interaction matrix
 - Removes self-loops and applies row normalization
-- Shape: `[num_users, num_users]`
+- Shape: `[num_mashups, num_mashups]`
 - Files: `features_2hop_mashup_PWA.pt` / `features_app_app_structural_HGA.pt`
 
-### Branch 2 — Item-Item Structural Contextual (3-hop Path)
+### Branch 2 — Mashup-api Structural Contextual 
 
-Propagates user-user similarity back to the item space.
+Propagates mashup-mashup similarity back to the item space.
 
 - Computes `S_ui = S_uu_normalized · R`
 - Masks out already-interacted items
-- Shape: `[num_users, num_items]`
+- Shape: `[num_mashups, num_apis]`
 - Files: `features_contextual_api_api_similarity_PWA.pt` / `features_contextual_api_api_structural_HGA.pt`
 
-### Branch 3 — User-Item Semantic (SBERT)
+### Branch 3 — Mashup-api Semantic (SBERT)
 
 Captures semantic affinity between Mashup/App descriptions and API descriptions.
 
 - Encodes descriptions with `all-MiniLM-L6-v2` and computes cosine similarity
-- Shape: `[num_users, num_items]`
+- Shape: `[num_mashups, num_apis]`
 - Files: `features_mashup_api_complementarity_PWA.pt` / `features_app_api_semantic_similarity_HGA.pt`
 
-### Branch 4 — User-User Semantic (SBERT)
+### Branch 4 — Mashup-Mashup Semantic (SBERT)
 
 Captures textual similarity between Mashup/App descriptions.
 
 - Encodes descriptions with `all-MiniLM-L6-v2` and computes pairwise cosine similarity
 - Removes self-similarity (diagonal set to 0)
-- Shape: `[num_users, num_users]`
+- Shape: `[num_mashups, num_apis]`
 - Files: `features_mashup_text_similarity_PWA.pt` / `features_app_app_text_similarity_HGA.pt`
 
 ---
@@ -175,25 +175,22 @@ The table below lists the main hyperparameters used in the paper's experiments.
 
 | Parameter | Flag | PWA | HGA | Description |
 |---|---|---|---|---|
-| Learning rate | `--lr` | `0.0001` | `0.0001` | AdamW optimizer learning rate |
+| Learning rate | `--lr` | `0.00008` | `0.0005` | AdamW optimizer learning rate |
 | Weight decay | `--weight_decay` | `0.01` | `0.01` | L2 regularization |
-| Batch size | `--batch_size` | `512` | `512` | Training batch size |
-| Model dimension | `--d_model` | `256` | `256` | Attention branch hidden dimension |
-| Intermediate dim | `--dim_inters` | `256` | `256` | Encoder projection dimension |
-| Attention heads | `--num_heads` | `4` | `4` | Number of multi-head attention heads |
-| Attention layers | `--num_layers` | `2` | `2` | Layers per attention branch |
-| Embedding size | `--emb_size` | `128` | `128` | Timestep embedding dimension |
+| Batch size | `--batch_size` | `512` | `1024` | Training batch size |
+| Model dimension | `--d_model` | `512` | `256` | Attention branch hidden dimension |
+| Intermediate dim | `--dim_inters` | `512` | `256` | Encoder projection dimension |
+| Attention heads | `--num_heads` | `4` | `8` | Number of multi-head attention heads |
+| Attention layers | `--num_layers` | `2` | `1` | Layers per attention branch |
+| Embedding size | `--emb_size` | `128` | `64` | Timestep embedding dimension |
 | Dropout | `--dropout` | `0.5` | `0.5` | Dropout rate |
-| Diffusion steps | `--steps` | `100` | `100` | Total forward diffusion steps T |
-| Noise scale | `--noise_scale` | `0.04` | `0.04` | Beta schedule scaling factor |
+| Diffusion steps | `--steps` | `100` | `50` | Total forward diffusion steps T |
+| Noise scale | `--noise_scale` | `0.04` | `0.01` | Beta schedule scaling factor |
 | Noise schedule | `--noise_schedule` | `linear` | `linear` | Beta schedule type |
 | Mean type | `--mean_type` | `x0` | `x0` | Diffusion prediction target (x₀) |
 | Fusion mode | `--fusion_mode` | `attention` | `attention` | Multi-view fusion mechanism |
-| CFG dropout prob | `--drop_prob` | `0.1` | `0.1` | Classifier-free guidance training dropout |
-| CFG scale | `--cfg_scale` | `1.5` | `1.5` | Guidance scale at inference |
-| Max epochs | `--epochs` | `200` | `200` | Maximum training epochs |
-| Early stop patience | — | `100` | `100` | Epochs without improvement before stopping |
-| Evaluation metric | `--early_stop_metric` | `combined_four` | `combined_four` | Early stopping criterion |
+| Max epochs | `--epochs` | `1000` | `200` | Maximum training epochs |
+criterion |
 | Top-N | `--topN` | `[10, 20, 50]` | `[10, 20, 50]` | Evaluation cutoffs |
 
 ---
@@ -207,12 +204,12 @@ python main.py \
   --dataset_type PWA \
   --dataset_name PWA_processed \
   --processed_data_path ./dataset1/ \
-  --lr 0.0001 \
+  --lr 0.00008 \
   --weight_decay 0.01 \
   --batch_size 512 \
   --epochs 200 \
-  --d_model 256 \
-  --dim_inters 256 \
+  --d_model 512 \
+  --dim_inters 512 \
   --num_heads 4 \
   --num_layers 2 \
   --emb_size 128 \
@@ -222,9 +219,6 @@ python main.py \
   --noise_schedule linear \
   --mean_type x0 \
   --fusion_mode attention \
-  --drop_prob 0.1 \
-  --cfg_scale 1.5 \
-  --early_stop_metric combined_four \
   --topN "[10, 20, 50]" \
   --cuda \
   --gpu 0 \
@@ -239,24 +233,21 @@ python main.py \
   --dataset_type HGA \
   --dataset_name HGA_processed \
   --processed_data_path ./dataset1/ \
-  --lr 0.0001 \
-  --weight_decay 0.01 \
-  --batch_size 512 \
+  --lr 0.0005 \
+  --weight_decay 0.0015 \
+  --batch_size 1024 \
   --epochs 200 \
   --d_model 256 \
   --dim_inters 256 \
-  --num_heads 4 \
-  --num_layers 2 \
-  --emb_size 128 \
+  --num_heads 8 \
+  --num_layers 1 \
+  --emb_size 64 \
   --dropout 0.5 \
-  --steps 100 \
-  --noise_scale 0.04 \
+  --steps 50 \
+  --noise_scale 0.01 \
   --noise_schedule linear \
   --mean_type x0 \
   --fusion_mode attention \
-  --drop_prob 0.1 \
-  --cfg_scale 1.5 \
-  --early_stop_metric combined_four \
   --topN "[10, 20, 50]" \
   --cuda \
   --gpu 0 \
@@ -326,23 +317,6 @@ Use `inference.py` with the saved `.pth` files, or read the final results direct
 
 The following results are representative of the model's performance with the hyperparameters listed above. Exact numbers may vary slightly due to hardware differences and random initialization.
 
-**PWA Dataset**
-
-| Metric | @10 | @20 | @50 |
-|---|---|---|---|
-| Recall | — | — | — |
-| NDCG | — | — | — |
-| MRR | — | — | — |
-
-**HGA Dataset**
-
-| Metric | @10 | @20 | @50 |
-|---|---|---|---|
-| Recall | — | — | — |
-| NDCG | — | — | — |
-| MRR | — | — | — |
-
-> Fill in the table with the specific numbers from your paper before submission.
 
 ### Reproducibility Notes
 
